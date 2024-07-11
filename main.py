@@ -1,10 +1,20 @@
+print("Importing modules...", end="")
 import generateMove as gm
+import requests as req
+import asyncio
+import pathlib
+print("Done")
+events = 2
 
-mygame = gm.Chess("5kr1/8/8/5pP1/8/6K1/8/8 w - f6 0 1")
-moves = gm.getLegalMoves(mygame)
-print(len(moves))
-textmoves = []
+with open(str(pathlib.Path(__file__).parent.resolve())+"\\TOKEN.txt", "r") as f: TOKEN = f.read()
 
-for move in moves:
-    textmoves.append(gm.numToCoord(move.start) + gm.numToCoord(move.end))
-print(textmoves)
+async def getStreamEvents(): global events; events = req.get("https://lichess.org/api/stream/event", headers={"Authorization": f"Bearer {TOKEN}"})
+
+async def main():
+    event = asyncio.Event()
+    asyncio.create_task(getStreamEvents())
+    print("Getting events...")
+    while True:
+        print(events)
+
+asyncio.run(main())
