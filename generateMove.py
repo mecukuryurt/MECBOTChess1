@@ -119,6 +119,7 @@ class Move:
         self.start = start
         self.end = end
         self.piece = piece
+        print(special)
         self.specialMoveType = special[0] 
         self.specialMoveDesc = special[1]
 
@@ -168,8 +169,9 @@ def numToCoord(num):
     return col+str(row)
 
 ################## PIECE MOVEMENTS ######################
-def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = True, limit = None, ignoreerroronthereisnopiece:bool = False):
+def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = True, limit = None, ignoreerroronthereisnopiece:bool = False, piececolour = 2):
     if not straight and not diagonal: return []
+    if piececolour == 2: piececolour = game.board[piece][0]
     def isNearToBorder(num):
         row = num // 8
         col = num % 8
@@ -206,11 +208,11 @@ def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = 
             if piecethere == Pieces.Empty: # there is no piece
                 probs.append(Move(piece, num, board[piece]))
 
-            elif piecethere[0] == 1 - board[piece][0]: # Enemy piece
+            elif piecethere[0] == 1 - piececolour: # Enemy piece
                 probs.append(Move(piece, num, board[piece]))
                 break
 
-            elif piecethere[0] == board[piece][0]: # Friendly piece
+            elif piecethere[0] == piececolour: # Friendly piece
                 break
             else: pass
 
@@ -235,10 +237,12 @@ def getKingMovement   (game:Chess, piece:int):
         if colour in icouldntfindname and castling[icouldntfindname] == True:
             if icouldntfindname[1] == "k":
                 if not (game.board[piece+1] == game.board[piece+2] == Pieces.Empty): continue
+                if isTheSquareThreatened(game, piece+1, game.board[piece][0]) == isTheSquareThreatened(game, piece+1, game.board[piece][0]) == True: continue
                 target = numColour*56 + 6; rook = numColour*56 + 7; rookgoesto = numColour*56+5
 
             if icouldntfindname[1] == "q": 
                 if not (game.board[piece-1] == game.board[piece-2] == game.board[piece-3] == Pieces.Empty): continue
+                if isTheSquareThreatened(game, piece-1, game.board[piece][0]) == isTheSquareThreatened(game, piece+1, game.board[piece][0]) == True: continue
                 target = numColour*56 + 2; rook = numColour*56    ; rookgoesto = numColour*56+3
                
             moves.append(Move(piece, target, game.board[piece], special=("castle", Move(rook, rookgoesto, (game.board[piece][0], Pieces.Rook)))))
@@ -265,9 +269,9 @@ def getPawnMovement   (game:Chess, piece:int):
                                 # is enp targeting the black pieces? == is the piece white?
     if game.enPassant != None and (game.enPassant < 24) == (pawn[0] == Pieces.White) and game.enPassant in captures: # There is en Passant!
         if captures[0] == game.enPassant:
-            moves.append(Move(piece, captures[0], pawn, ("enp", (pawn[0]-1,5))*-16))
+            moves.append(Move(piece, captures[0], pawn, special = ("enp", int((pawn[0]-1.5)*-16))))
         if captures[1] == game.enPassant:
-            moves.append(Move(piece, captures[1], pawn, ("enp", (pawn[0]-1,5))*-16))
+            moves.append(Move(piece, captures[1], pawn, special = ("enp", int((pawn[0]-1.5)*-16))))
 
     if board[piece+direction] == Pieces.Empty: # Simple forward move
         if piece+direction >= promotionranges[pawn[0]][0] and piece+direction <= promotionranges[pawn[0]][1]:
@@ -286,6 +290,7 @@ def getPawnMovement   (game:Chess, piece:int):
                 moves.append(Move(piece, capture, pawn))
 
     return moves
+
 def getKnightMovement (game:Chess, piece:int): 
     def setDirectionsForKnight(num):
         directions = []
@@ -347,11 +352,11 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
     if whoIsEnemy not in [0,1]: raise TypeError("Expected 0 or 1")
     board = game.board
 
-    for threat in normalMovement(game, square, False, True, ignoreerroronthereisnopiece=True): # Diagonal Threats
+    for threat in normalMovement(game, square, False, True, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Diagonal Threats
         if board[threat.end] == Pieces.Empty: continue
         if board[threat.end][1] in [Pieces.Queen, Pieces.Bishop]: return True
 
-    for threat in normalMovement(game, square, True, False, ignoreerroronthereisnopiece=True): # Straight Threats
+    for threat in normalMovement(game, square, True, False, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Straight Threats
         if board[threat.end] == Pieces.Empty: continue
         if board[threat.end][1] in [Pieces.Queen, Pieces.Rook]: return True
 
@@ -362,7 +367,7 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
     # Pawn Threats
     direction = -8 if whoIsEnemy == Pieces.Black else +8
     for threat in (square+1+direction, square-1+direction):
-        if board[threat][0] == whoIsEnemy and abs((threat%8) - (square%8)) == 1 and board[threat][1] in (Pieces.Queen, Pieces.Bishop, Pieces.Pawn): print("yok artik"); return True
+        if board[threat][0] == whoIsEnemy and abs((threat%8) - (square%8)) == 1 and board[threat][1] in (Pieces.Queen, Pieces.Bishop, Pieces.Pawn): return True
         else: continue
 
     return False
