@@ -1,5 +1,13 @@
 from copy import deepcopy
 
+class Move:
+    def __init__(self, start:int, end:int, piece:tuple, special:tuple = (None,None)):
+        self.start = start
+        self.end = end
+        self.piece = piece
+        self.specialMoveType = special[0] 
+        self.specialMoveDesc = special[1]
+
 class Chess:
     def __init__(self, fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         output = self.readFEN(fen)
@@ -57,36 +65,56 @@ class Chess:
         
         return (board, whoseTurn, castling, enp, int(halfmove), int(fullmove))
 
-    def move(self, start: int, end: int, special = (None, None)):
-        piece = self.board[start]
-        if special[0] == None: 
-            self.board[start] = Pieces.Empty
-            self.board[end]   = piece
+    def move(self, move: Move):
+        piece = self.board[move.start]
+        if not piece == self.turn: raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+        if move.specialMoveType == None: 
+            self.board[move.start] = Pieces.Empty
+            self.board[move.end]   = piece
 
         else:
-            if special[0] == "enp":
-                self.board[start] = Pieces.Empty
-                self.board[end]   = piece
-                self.board[special[1]] = Pieces.Empty
+            if move.specialMoveType == "enp":
+                self.board[move.start] = Pieces.Empty
+                self.board[move.end]   = piece
+                self.board[move.specialMoveDesc] = Pieces.Empty
 
-            elif special[0] == "castle":
-                self.board[start] = Pieces.Empty
-                self.board[end]   = piece
-                self.board[special[1].start] = Pieces.Empty
-                self.board[special[1].end]   = special[1].piece
+            elif move.specialMoveType == "castle":
+                self.board[move.start] = Pieces.Empty
+                self.board[move.end]   = piece
+                self.board[move.specialMoveDesc.start] = Pieces.Empty
+                self.board[move.specialMoveDesc.end]   = move.specialMoveDesc.piece
             
-            elif special[0] == "pro":
-                pawncolour = self.board[start][0]
-                self.board[start] = Pieces.Empty
-                self.board[end]   = (pawncolour , special[1])
+            elif move.specialMoveType == "pro":
+                pawncolour = self.board[move.start][0]
+                self.board[move.start] = Pieces.Empty
+                self.board[move.end]   = (pawncolour , move.specialMoveDesc)
 
         """
         Special Move Type  -       Meaning          -   Special Move Description
         enp                      En Passant             Gives the captured piece when played
         castle                    Castling              Gives the rook movement when played
-        pro                     Pawn Promotion          Gives the promotion option for pawn
+        pro                     Pawn Promotion          Gives the promotion option for pawn (PieceType)
         """
+
+        # Update castling rights
+        if piece[1] == Pieces.King:
+            self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = False
+            self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = False
+
+        # Update castling rights
+        if piece[1] == Pieces.Rook:
+            for kingpos, square in enumerate(self.board):
+                if square[0] == piece[0] and piece[1] == Pieces.King: break
+
+            # moving a rook, so move.start is that rook's pos.
+            if move.start - kingpos < 0: # The queenside rook.
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = False
+
+            if move.start - kingpos > 0: # The kingside rook.
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = False
+
         self.turn = 1 - self.turn
+
         
 class Pieces:
     Pawn   = 1
@@ -113,15 +141,6 @@ class Pieces:
 
     Empty = (None, None)
     AllPieces = (Knight, Bishop, Rook, Queen, King, Pawn)
-
-class Move:
-    def __init__(self, start:int, end:int, piece:tuple, special:tuple = (None,None)):
-        self.start = start
-        self.end = end
-        self.piece = piece
-        print(special)
-        self.specialMoveType = special[0] 
-        self.specialMoveDesc = special[1]
 
 def writeFEN(game:Chess):
     fen = ""
@@ -167,6 +186,40 @@ def numToCoord(num):
     col = columns[colnum]
     row = 8 - (num // 8)
     return col+str(row)
+
+def moveToString(move: Move):
+    text = ""
+    if move.specialMoveType in [None, "enp", "castle"]:
+        text = numToCoord(move.start) + numToCoord(move.end)
+    
+    else:
+        if move.specialMoveType == "pro":
+            text = text + Pieces.ptt[move.specialMoveDesc]
+    
+    return text
+
+def stringToMove(game: Chess, move: str):
+    start = move[0:2]
+    end = move[2:4]
+    startsq = coordToNum(start)
+    endsq = coordToNum(end)
+    if len(move) == 5 and game.board[startsq][1] == Pieces.Pawn: # Pawn Promotion
+        special = Pieces.ttp[move[-1]]
+        return Move(startsq, endsq, game.board[startsq], special=("pro", special))
+    
+    if game.board[startsq][1] == Pieces.King and abs(startsq - endsq) == 2: # Castling 
+        colour = {0:"b",1:"w"}[game.board[startsq][0]]
+        numColour = game.board[startsq][0]
+        if abs(startsq - endsq) < 0: rook = numColour*56 + 7; rookgoesto = numColour*56+5 # Castle kingside
+        if abs(startsq - endsq) > 0: rook = numColour*56;     rookgoesto = numColour*56+3 # Castle queenside   
+            
+        return Move(startsq, endsq, game.board[startsq], special=("castle", Move(rook, rookgoesto, (game.board[startsq][0], Pieces.Rook))))
+    
+    if game.board[endsq] == Pieces.Empty and game.board[startsq][1] == Pieces.Pawn: # En Passant
+        return Move(startsq, endsq, game.board[startsq], ("enp", int(endsq + (game.board[startsq][0]-0.5)*16)))
+    
+    else:
+        return Move(startsq, endsq, game.board[startsq], (None, None))
 
 ################## PIECE MOVEMENTS ######################
 def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = True, limit = None, ignoreerroronthereisnopiece:bool = False, piececolour = 2):
@@ -269,9 +322,9 @@ def getPawnMovement   (game:Chess, piece:int):
                                 # is enp targeting the black pieces? == is the piece white?
     if game.enPassant != None and (game.enPassant < 24) == (pawn[0] == Pieces.White) and game.enPassant in captures: # There is en Passant!
         if captures[0] == game.enPassant:
-            moves.append(Move(piece, captures[0], pawn, special = ("enp", int((pawn[0]-1.5)*-16))))
+            moves.append(Move(piece, captures[0], pawn, special = ("enp", int(captures[0] + (pawn[0]-0.5)*16))))
         if captures[1] == game.enPassant:
-            moves.append(Move(piece, captures[1], pawn, special = ("enp", int((pawn[0]-1.5)*-16))))
+            moves.append(Move(piece, captures[1], pawn, special = ("enp", int(captures[1] + (pawn[0]-0.5)*16))))
 
     if board[piece+direction] == Pieces.Empty: # Simple forward move
         if piece+direction >= promotionranges[pawn[0]][0] and piece+direction <= promotionranges[pawn[0]][1]:
@@ -338,7 +391,7 @@ def getLegalMoves(game:Chess):
     for move in allMoves:
         alternativeGame = deepcopy(game)
         turn = game.turn
-        alternativeGame.move(move.start, move.end, (move.specialMoveType, move.specialMoveDesc))
+        alternativeGame.move(move)
         for i, piece in enumerate(alternativeGame.board):
             if piece[0] == turn and piece[1] == Pieces.King:
                 isKingInCheck = isTheSquareThreatened(alternativeGame, i, 1-turn)
