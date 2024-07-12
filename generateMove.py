@@ -67,7 +67,7 @@ class Chess:
 
     def move(self, move: Move, ignoreerroronnotyourturn = False):
         piece = self.board[move.start]
-        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
         if move.specialMoveType == None: 
             self.board[move.start] = Pieces.Empty
             self.board[move.end]   = piece
