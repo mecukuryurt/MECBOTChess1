@@ -16,11 +16,13 @@ while True:
     for event in client.bots.stream_incoming_events():
         print("EVENT", event)
         if event["type"] == "challenge" and not areWePlaying:
-            if event["challenge"]["challenger"]["name"] == "Ertugrul2010":
+            if event["challenge"]["variant"]["key"] == "standard" and event["challenge"]["rated"] == False: # event["challenge"]["challenger"]["name"] == "Ertugrul2010"
                 gameid = event["challenge"]["id"]
                 client.bots.accept_challenge(gameid)
                 areWePlaying = True
                 break
+            else:
+                client.bots.decline_challenge(event["challenge"]["id"])
         
         if event["type"] == "gameStart": 
             gameid = event["game"]["gameId"]
