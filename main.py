@@ -31,10 +31,10 @@ while True:
     
     for event in client.bots.stream_game_state(gameid):
         print("GAMESTATE", event)
-        if event["type"] == "gameFull" and len(event["state"]["moves"].split(" ")) % 2 == 1- colour: 
+        if event["type"] == "gameFull" and len(event["state"]["moves"].split()) % 2 == 1 - colour:
             move = random.choice(gm.getLegalMoves(game))
             movetext = gm.moveToString(move)
-            print("I PLAYED: ", movetext)
+            print("I PLAYED: ", movetext, game.turn)
             client.bots.make_move(gameid, movetext)
             game.move(move)
             
@@ -43,12 +43,13 @@ while True:
             if len(event["moves"].split(" ")) % 2 == colour: continue
             else:
                 if event["status"] == "started":
+                    print("THEY PLAYED: ", event["moves"].split(" ")[-1], game.turn)
                     game.move(gm.stringToMove(game, event["moves"].split(" ")[-1]))
                     move = random.choice(gm.getLegalMoves(game))
                     movetext = gm.moveToString(move)
                     client.bots.make_move(gameid, movetext)
                     game.move(move)
-                    print("I MOVED: ", movetext)
+                    print("I MOVED: ", movetext, game.turn)
                 
                 if event["status"] == "mate":
                     client.bots.post_message(gameid, "Good Game! "+("Prepare yourself for another game!" if event["winner"] == colourtext else "You win!"))

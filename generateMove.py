@@ -65,9 +65,9 @@ class Chess:
         
         return (board, whoseTurn, castling, enp, int(halfmove), int(fullmove))
 
-    def move(self, move: Move):
+    def move(self, move: Move, ignoreerroronnotyourturn = False):
         piece = self.board[move.start]
-        if not piece == self.turn: raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
         if move.specialMoveType == None: 
             self.board[move.start] = Pieces.Empty
             self.board[move.end]   = piece
@@ -391,7 +391,7 @@ def getLegalMoves(game:Chess):
     for move in allMoves:
         alternativeGame = deepcopy(game)
         turn = game.turn
-        alternativeGame.move(move)
+        alternativeGame.move(move, ignoreerroronnotyourturn=True)
         for i, piece in enumerate(alternativeGame.board):
             if piece[0] == turn and piece[1] == Pieces.King:
                 isKingInCheck = isTheSquareThreatened(alternativeGame, i, 1-turn)
