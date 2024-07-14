@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import deepcopy, copy
 
 class Move:
     def __init__(self, start:int, end:int, piece:tuple, special:tuple = (None,None)):
@@ -290,12 +290,12 @@ def getKingMovement   (game:Chess, piece:int):
         if colour in icouldntfindname and castling[icouldntfindname] == True:
             if icouldntfindname[1] == "k":
                 if not (game.board[piece+1] == game.board[piece+2] == Pieces.Empty): continue
-                if isTheSquareThreatened(game, piece+1, game.board[piece][0]) == isTheSquareThreatened(game, piece+1, game.board[piece][0]) == True: continue
+                if isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == True: continue
                 target = numColour*56 + 6; rook = numColour*56 + 7; rookgoesto = numColour*56+5
 
             if icouldntfindname[1] == "q": 
                 if not (game.board[piece-1] == game.board[piece-2] == game.board[piece-3] == Pieces.Empty): continue
-                if isTheSquareThreatened(game, piece-1, game.board[piece][0]) == isTheSquareThreatened(game, piece+1, game.board[piece][0]) == True: continue
+                if isTheSquareThreatened(game, piece-1, 1-game.board[piece][0]) == isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == True: continue
                 target = numColour*56 + 2; rook = numColour*56    ; rookgoesto = numColour*56+3
                
             moves.append(Move(piece, target, game.board[piece], special=("castle", Move(rook, rookgoesto, (game.board[piece][0], Pieces.Rook)))))
@@ -404,6 +404,12 @@ def getLegalMoves(game:Chess):
 def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
     if whoIsEnemy not in [0,1]: raise TypeError("Expected 0 or 1")
     board = game.board
+    x = deepcopy(game)
+    x.board[square] = 1 - whoIsEnemy, board[square][1] # If an empty square is given, Knight Movement function generates issue about the piece colour (None in this situation). 
+
+    for threat in getKnightMovement(x, square): # Knight Threats
+        if board[threat.end] == Pieces.Empty: continue
+        if board[threat.end][1] == Pieces.Knight: return True
 
     for threat in normalMovement(game, square, False, True, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Diagonal Threats
         if board[threat.end] == Pieces.Empty: continue
@@ -413,10 +419,6 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
         if board[threat.end] == Pieces.Empty: continue
         if board[threat.end][1] in [Pieces.Queen, Pieces.Rook]: return True
 
-    for threat in getKnightMovement(game, square): # Knight Threats
-        if board[threat.end] == Pieces.Empty: continue
-        if board[threat.end][1] == Pieces.Knight: return True
-
     # Pawn Threats
     direction = -8 if whoIsEnemy == Pieces.Black else +8
     for threat in (square+1+direction, square-1+direction):
@@ -424,3 +426,14 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
         else: continue
 
     return False
+
+def getMoveCount(game:Chess = Chess(), depth:int = 1):
+    if depth == 1: return len(getLegalMoves(game))
+    else:
+        moveCount = 0
+        for move in getLegalMoves(game):
+            alternativeGame = deepcopy(game)
+            alternativeGame.move(move, True)
+            moveCount += getMoveCount(alternativeGame, depth-1)
+            del alternativeGame
+    return moveCount
