@@ -1,4 +1,4 @@
-from copy import deepcopy, copy
+from copy import deepcopy
 
 class Move:
     def __init__(self, start:int, end:int, piece:tuple, special:tuple = (None,None)):
