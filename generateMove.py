@@ -437,3 +437,78 @@ def getMoveCount(game:Chess = Chess(), depth:int = 1):
             moveCount += getMoveCount(alternativeGame, depth-1)
             del alternativeGame
     return moveCount
+
+def evaluate(game:Chess):
+    board = game.board
+
+    evaluation = 0
+
+    kings = [i for i, piece in enumerate(board) if piece[1] == Pieces.King]
+    if board[kings[0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[00]
+
+    # Calculate legal moves of white
+    game.turn = Pieces.White
+    whiteMobility = getMoveCount(game, 1)
+
+    isWkingInCheck = isTheSquareThreatened(game, kings[1], 0)
+    if whiteMobility == 0 and isWkingInCheck: return -9999999
+    if whiteMobility == 0 and not isWkingInCheck: return "stalemate"
+
+    # Calculate legal moves of black
+    game.turn = Pieces.Black
+    blackMobility = getMoveCount(game, 1)
+
+    isBkingInCheck = isTheSquareThreatened(game, kings[0], 1)
+    if blackMobility == 0 and isBkingInCheck: return 9999999
+    if blackMobility == 0 and not isBkingInCheck: return "stalemate"
+
+    evaluation += (whiteMobility - blackMobility) / 10
+
+    pieceWeight = {
+        "wk" : 200,
+        "wq" : 9,
+        "wr" : 5,
+        "wb" : 3,
+        "wn" : 3,
+        "wp" : 1,
+        "bk" : -200,
+        "bq" : -9,
+        "br" : -5,
+        "bb" : -3,
+        "bn" : -3,
+        "bp" : -1
+    }
+
+    pawnsOnFile = {1:[i for i in range(9)], 0: [i for i in range(9)]}
+    pawns = []
+    pawnData = {
+        "wi" : 0,
+        "wb" : 0,
+        "wd" : 0,
+        "bi" : 0,
+        "bb" : 0,
+        "bd" : 0
+    }
+
+    for i, piece in enumerate(game.board):
+        if piece == Pieces.Empty: continue
+        colour = {0: "b", 1:"w"}[piece[0]]
+        pieceType = Pieces.ptt[piece[1]]
+        evaluation += pieceWeight[colour + pieceType]
+        evaluation = round(evaluation * 10) /10
+
+        if piece[1] == Pieces.Pawn: # Check for pawns. Add the values to check for doubled, isolated and blocked pawns later
+            pawns.append(i)
+            pawnsOnFile[piece[0]][i % 8] += 1
+
+    for pawn in pawns:
+        if pawnsOnFile[board[pawn][0]][(pawn % 8) - 1] == pawnsOnFile[board[pawn][0]][(pawn % 8) + 1] == 0: pawnData[{0: "b", 1:"w"}[board[pawn][0]] + "i"] += 1 # Isolated Pawn
+        if pawnsOnFile[board[pawn][0]][(pawn % 8)] >= 2: pawnData[{0: "b", 1:"w"}[board[pawn][0]] + "d"] += 1 # Doubled Pawn
+        if len(getPawnMovement(game, pawn)) == 0: pawnData[{0: "b", 1:"w"}[board[pawn][0]] + "b"] += 1 # Blocked Pawn
+
+    isolated = pawnData["wi"]-pawnData["bi"]
+    doubled = pawnData["wd"]-pawnData["bd"]
+    blocked = pawnData["wb"]-pawnData["bb"]
+    evaluation -= (isolated + doubled + blocked) / 2
+
+    return evaluation

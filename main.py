@@ -63,10 +63,6 @@ def startBot():
             if event["type"] == "gameFinish":
                 areWePlaying = False
 
-game = gm.Chess("2bqkb1r/1ppp1ppp/rPn2n2/p3p3/2B1P3/5N2/P1PP1PPP/RNBQK2R b KQk - 0 6")
-print(game.castle)
-print(gm.getMoveCount(game, 2))
-for move in gm.getLegalMoves(game):
-    alternativeGame = gm.deepcopy(game)
-    alternativeGame.move(move, ignoreerroronnotyourturn=True)
-    print(gm.moveToString(move), gm.getMoveCount(alternativeGame, 1))
+game = gm.Chess("k7/2Q5/4P3/8/8/8/PPPP1PPP/RNB1KBNR b KQ - 2 24")
+
+print(gm.evaluate(game))
