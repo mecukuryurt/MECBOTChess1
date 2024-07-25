@@ -1,12 +1,13 @@
 from copy import deepcopy
 
 class Move:
-    def __init__(self, start:int, end:int, piece:tuple, special:tuple = (None,None)):
+    def __init__(self, start:int, end:int, piece:tuple, targetedpiece:tuple, special:tuple = (None,None)):
         self.start = start
         self.end = end
         self.piece = piece
         self.specialMoveType = special[0] 
         self.specialMoveDesc = special[1]
+        self.targetedPiece = targetedpiece
 
 class Chess:
     def __init__(self, fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
@@ -17,7 +18,8 @@ class Chess:
         self.enPassant = output[3]
         self.halfmove = output[4]
         self.fullmove = output[5]
-    
+        self.lastCastle = None
+
     def readFEN(self, fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         board = []
         pieces    = fen.split(" ")[0]
@@ -68,6 +70,9 @@ class Chess:
     def move(self, move: Move, ignoreerroronnotyourturn = False):
         piece = self.board[move.start]
         if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+
+        self.lastCastle = self.castle
+
         if move.specialMoveType == None: 
             self.board[move.start] = Pieces.Empty
             self.board[move.end]   = piece
@@ -83,6 +88,8 @@ class Chess:
                 self.board[move.end]   = piece
                 self.board[move.specialMoveDesc.start] = Pieces.Empty
                 self.board[move.specialMoveDesc.end]   = move.specialMoveDesc.piece
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = False
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = False
             
             elif move.specialMoveType == "pro":
                 pawncolour = self.board[move.start][0]
@@ -112,6 +119,61 @@ class Chess:
 
             if move.start - kingpos > 0: # The kingside rook.
                 self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = False
+
+        self.turn = 1 - self.turn
+
+    def undoMove(self, move: Move, ignoreerroronnotyourturn = False):
+        piece = self.board[move.end]
+        if (piece[0] == self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("The last move was not "+ {0:"black", 1:"white"}[self.turn] + "'s move!")
+        
+        if self.lastCastle == None: raise Exception("This is the starting position!")
+        
+        if move.specialMoveType == None: 
+            self.board[move.end]   = move.targetedPiece
+            self.board[move.start] = piece
+
+        else:
+            if move.specialMoveType == "enp":
+                self.board[move.end] = Pieces.Empty
+                self.board[move.start]   = piece
+                self.board[move.specialMoveDesc] = (1 - piece[0], Pieces.Pawn)
+
+            elif move.specialMoveType == "castle":
+                self.board[move.start] = piece
+                self.board[move.end]   = Pieces.Empty
+                self.board[move.specialMoveDesc.start] = move.specialMoveDesc.piece
+                self.board[move.specialMoveDesc.end]   = Pieces.Empty
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = True
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = True
+            
+            elif move.specialMoveType == "pro":
+                pawncolour = self.board[move.end][0]
+                self.board[move.start] = (pawncolour , move.specialMoveDesc)
+                self.board[move.end]   = move.targetedPiece
+
+        """
+        Special Move Type  -       Meaning          -   Special Move Description
+        enp                      En Passant             Gives the captured piece when played
+        castle                    Castling              Gives the rook movement when played
+        pro                     Pawn Promotion          Gives the promotion option for pawn (PieceType)
+        """
+
+        # Update castling rights
+        if piece[1] == Pieces.King:
+            self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "k"]
+            self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "q"]
+
+        # Update castling rights
+        if piece[1] == Pieces.Rook:
+            for kingpos, square in enumerate(self.board):
+                if square[0] == piece[0] and piece[1] == Pieces.King: break
+
+            # moving a rook, so move.start is that rook's pos.
+            if move.start - kingpos < 0: # The queenside rook.
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "q"]
+
+            if move.start - kingpos > 0: # The kingside rook.
+                self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "k"]
 
         self.turn = 1 - self.turn
 
@@ -168,7 +230,15 @@ def writeFEN(game:Chess):
             counter = 0
             fen += "/"
 
-    return fen[:-1] + " " + {0:"b", 1:"w"}[game.turn] + " - - - -"
+    castling = " "
+    if game.castle["wk"]: castling += "K"
+    if game.castle["wq"]: castling += "Q"
+    if game.castle["bk"]: castling += "k"
+    if game.castle["bq"]: castling += "q"
+
+    if castling == " ": castling = " - "
+
+    return fen[:-1] + " " + {0:"b", 1:"w"}[game.turn] + castling + " - - -"
 
 ################# UTILITIES ##########################
 def coordToNum(coord):
@@ -259,10 +329,10 @@ def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = 
             distance += 1
             piecethere = board[num]
             if piecethere == Pieces.Empty: # there is no piece
-                probs.append(Move(piece, num, board[piece]))
+                probs.append(Move(piece, num, board[piece], piecethere))
 
             elif piecethere[0] == 1 - piececolour: # Enemy piece
-                probs.append(Move(piece, num, board[piece]))
+                probs.append(Move(piece, num, board[piece], piecethere))
                 break
 
             elif piecethere[0] == piececolour: # Friendly piece
@@ -298,7 +368,7 @@ def getKingMovement   (game:Chess, piece:int):
                 if isTheSquareThreatened(game, piece-1, 1-game.board[piece][0]) == isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == True: continue
                 target = numColour*56 + 2; rook = numColour*56    ; rookgoesto = numColour*56+3
                
-            moves.append(Move(piece, target, game.board[piece], special=("castle", Move(rook, rookgoesto, (game.board[piece][0], Pieces.Rook)))))
+            moves.append(Move(piece, target, game.board[piece], Pieces.Empty, special=("castle", Move(rook, rookgoesto, (game.board[piece][0], Pieces.Rook), Pieces.Empty))))
 
     return moves
 
@@ -317,30 +387,30 @@ def getPawnMovement   (game:Chess, piece:int):
     direction = -8 if pawn[0] == Pieces.White else +8
     captures = (piece+1+direction, piece-1+direction)
     if piece >= startingsquaresforpawns[pawn[0]][0] and piece <= startingsquaresforpawns[pawn[0]][1]: # Double pawn move
-        if board[piece + (direction*2)] == Pieces.Empty and board[piece + direction] == Pieces.Empty: moves.append(Move(piece, piece+(direction*2), pawn))
+        if board[piece + (direction*2)] == Pieces.Empty and board[piece + direction] == Pieces.Empty: moves.append(Move(piece, piece+(direction*2), pawn, board[piece + (direction*2)]))
     
                                 # is enp targeting the black pieces? == is the piece white?
     if game.enPassant != None and (game.enPassant < 24) == (pawn[0] == Pieces.White) and game.enPassant in captures: # There is en Passant!
         if captures[0] == game.enPassant:
-            moves.append(Move(piece, captures[0], pawn, special = ("enp", int(captures[0] + (pawn[0]-0.5)*16))))
+            moves.append(Move(piece, captures[0], pawn, board[captures[0]], special = ("enp", int(captures[0] + (pawn[0]-0.5)*16))))
         if captures[1] == game.enPassant:
-            moves.append(Move(piece, captures[1], pawn, special = ("enp", int(captures[1] + (pawn[0]-0.5)*16))))
+            moves.append(Move(piece, captures[1], pawn, board[captures[0]], special = ("enp", int(captures[1] + (pawn[0]-0.5)*16))))
 
     if board[piece+direction] == Pieces.Empty: # Simple forward move
         if piece+direction >= promotionranges[pawn[0]][0] and piece+direction <= promotionranges[pawn[0]][1]:
             for p in Pieces.AllPieces[:-2]:
-                moves.append(Move(piece, piece+direction, pawn, special=("pro", p)))
+                moves.append(Move(piece, piece+direction, pawn, Pieces.Empty, special=("pro", p)))
     
-        else: moves.append(Move(piece, piece+direction, pawn))
+        else: moves.append(Move(piece, piece+direction, pawn, Pieces.Empty))
     
     for capture in captures: # Detect diagonal captures
         target = board[capture]
         if target[0] == 1 - pawn[0] and abs((capture%8) - (piece%8)) == 1:
             if capture >= promotionranges[pawn[0]][0] and capture <= promotionranges[pawn[0]][1]:
                 for p in Pieces.AllPieces[:-2]:
-                    moves.append(Move(piece, capture, pawn, special=("pro", p)))
+                    moves.append(Move(piece, capture, pawn, board[capture], special=("pro", p)))
             else:
-                moves.append(Move(piece, capture, pawn))
+                moves.append(Move(piece, capture, pawn, board[capture]))
 
     return moves
 
@@ -365,7 +435,7 @@ def getKnightMovement (game:Chess, piece:int):
     for d in setDirectionsForKnight(piece):
         target = piece + d
         if board[target][0] == 1 - knight[0] or board[target] == Pieces.Empty:
-            moves.append(Move(piece, target, knight))
+            moves.append(Move(piece, target, knight, board[target]))
     return moves
 
 def getPsuedoLegalMoves(game:Chess):
@@ -389,27 +459,29 @@ def getLegalMoves(game:Chess):
     legalMoves = []
 
     for move in allMoves:
-        alternativeGame = deepcopy(game)
+        # alternativeGame = deepcopy(game)
         turn = game.turn
-        alternativeGame.move(move, ignoreerroronnotyourturn=True)
-        for i, piece in enumerate(alternativeGame.board):
+        game.move(move, ignoreerroronnotyourturn=True)
+        for i, piece in enumerate(game.board):
             if piece[0] == turn and piece[1] == Pieces.King:
-                isKingInCheck = isTheSquareThreatened(alternativeGame, i, 1-turn)
+                isKingInCheck = isTheSquareThreatened(game, i, 1-turn)
                 if not isKingInCheck:
                     legalMoves.append(move)
-        del alternativeGame
+        game.undoMove(move, ignoreerroronnotyourturn=True)
 
     return legalMoves
 
 def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
     if whoIsEnemy not in [0,1]: raise TypeError("Expected 0 or 1")
     board = game.board
-    x = deepcopy(game)
-    x.board[square] = 1 - whoIsEnemy, board[square][1] # If an empty square is given, Knight Movement function generates issue about the piece colour (None in this situation). 
+    colour = board[square][0]
+    game.board[square] = 1 - whoIsEnemy, board[square][1] # If an empty square is given, Knight Movement function generates issue about the piece colour (None in this situation). 
 
-    for threat in getKnightMovement(x, square): # Knight Threats
+    for threat in getKnightMovement(game, square): # Knight Threats
         if board[threat.end] == Pieces.Empty: continue
-        if board[threat.end][1] == Pieces.Knight: return True
+        if board[threat.end][1] == Pieces.Knight: game.board[square] = colour, board[square][1]; return True
+
+    game.board[square] = colour, board[square][1]
 
     for threat in normalMovement(game, square, False, True, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Diagonal Threats
         if board[threat.end] == Pieces.Empty: continue
@@ -432,10 +504,9 @@ def getMoveCount(game:Chess = Chess(), depth:int = 1):
     else:
         moveCount = 0
         for move in getLegalMoves(game):
-            alternativeGame = deepcopy(game)
-            alternativeGame.move(move, True)
-            moveCount += getMoveCount(alternativeGame, depth-1)
-            del alternativeGame
+            game.move(move, True)
+            moveCount += getMoveCount(game, depth-1)
+            game.undoMove(move, True)
     return moveCount
 
 def evaluate(game:Chess):

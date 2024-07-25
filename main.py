@@ -3,6 +3,7 @@ import generateMove as gm
 import berserk
 import pathlib
 import random
+import time
 print("Done")
 
 def strategy(game:gm.Chess):
@@ -63,6 +64,22 @@ def startBot():
             if event["type"] == "gameFinish":
                 areWePlaying = False
 
-game = gm.Chess("k7/2Q5/4P3/8/8/8/PPPP1PPP/RNB1KBNR b KQ - 2 24")
+game = gm.Chess("r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 3 3")
 
-print(gm.evaluate(game))
+moves = gm.getLegalMoves(game)
+
+for move in moves:
+    start = gm.writeFEN(game)
+    game.move(move)
+    game.undoMove(move)
+    end = gm.writeFEN(game)
+    # print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc, start == end)
+    
+# print(gm.getMoveCount(game, depth=4))
+
+# for move in moves: print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc)
+
+print(gm.writeFEN(game))
+s = time.time()
+print(gm.getMoveCount(game, depth=4))
+print(time.time() - s)
