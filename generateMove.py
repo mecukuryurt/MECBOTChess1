@@ -18,7 +18,7 @@ class Chess:
         self.enPassant = output[3]
         self.halfmove = output[4]
         self.fullmove = output[5]
-        self.lastCastle = None
+        self.moves = []
 
     def readFEN(self, fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         board = []
@@ -71,7 +71,7 @@ class Chess:
         piece = self.board[move.start]
         if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
 
-        self.lastCastle = self.castle
+        self.moves.append(move)        
 
         if move.specialMoveType == None: 
             self.board[move.start] = Pieces.Empty
@@ -126,8 +126,8 @@ class Chess:
         piece = self.board[move.end]
         if (piece[0] == self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("The last move was not "+ {0:"black", 1:"white"}[self.turn] + "'s move!")
         
-        if self.lastCastle == None: raise Exception("This is the starting position!")
-        
+        self.moves.pop()
+
         if move.specialMoveType == None: 
             self.board[move.end]   = move.targetedPiece
             self.board[move.start] = piece
@@ -148,7 +148,7 @@ class Chess:
             
             elif move.specialMoveType == "pro":
                 pawncolour = self.board[move.end][0]
-                self.board[move.start] = (pawncolour , move.specialMoveDesc)
+                self.board[move.start] = (pawncolour , Pieces.Pawn)
                 self.board[move.end]   = move.targetedPiece
 
         """
@@ -157,23 +157,43 @@ class Chess:
         castle                    Castling              Gives the rook movement when played
         pro                     Pawn Promotion          Gives the promotion option for pawn (PieceType)
         """
+        # White King     White Kingside Rook            
+        wk = 0; wqr = 0; wkr = 0 
+        #       White Queenside Rook 
 
-        # Update castling rights
-        if piece[1] == Pieces.King:
-            self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "k"]
-            self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "q"]
+        bk = 0; bqr = 0; bkr = 0
 
-        # Update castling rights
-        if piece[1] == Pieces.Rook:
-            for kingpos, square in enumerate(self.board):
-                if square[0] == piece[0] and piece[1] == Pieces.King: break
+        for lastmove in self.moves:
+            # Update castling rights
+            movedpiece = lastmove.piece
+            if movedpiece[1] == Pieces.King:
+                self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "k"] = False
+                self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "q"] = False
+                if movedpiece[0] == Pieces.Black: bk += 1
+                if movedpiece[0] == Pieces.White: wk += 1
 
-            # moving a rook, so move.start is that rook's pos.
-            if move.start - kingpos < 0: # The queenside rook.
-                self.castle[{0:"b", 1:"w"}[piece[0]] + "q"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "q"]
 
-            if move.start - kingpos > 0: # The kingside rook.
-                self.castle[{0:"b", 1:"w"}[piece[0]] + "k"] = self.lastCastle[{0:"b", 1:"w"}[piece[0]] + "k"]
+            # Update castling rights
+            if movedpiece[1] == Pieces.Rook:
+                kingpos = 60 if movedpiece[0] == 1 else 4
+
+                # moving a rook, so move.start is that rook's pos.
+                if lastmove.start - kingpos < 0: # The queenside rook.
+                    self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "q"] = False
+                    if movedpiece[0] == Pieces.Black: bqr += 1
+                    if movedpiece[0] == Pieces.White: wqr += 1
+
+                if lastmove.start - kingpos > 0: # The kingside rook.
+                    self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "k"] = False
+                    if movedpiece[0] == Pieces.Black: bkr += 1
+                    if movedpiece[0] == Pieces.White: wkr += 1
+            
+        if wk == 0:
+            if wkr == 0: self.castle["wk"] = True
+            if wqr == 0: self.castle["wq"] = True
+        if bk == 0:
+            if bkr == 0: self.castle["bk"] = True
+            if bqr == 0: self.castle["bq"] = True
 
         self.turn = 1 - self.turn
 
@@ -236,7 +256,7 @@ def writeFEN(game:Chess):
     if game.castle["bk"]: castling += "k"
     if game.castle["bq"]: castling += "q"
 
-    if castling == " ": castling = " - "
+    if castling == " ": castling = " -"
 
     return fen[:-1] + " " + {0:"b", 1:"w"}[game.turn] + castling + " - - -"
 
@@ -360,12 +380,12 @@ def getKingMovement   (game:Chess, piece:int):
         if colour in icouldntfindname and castling[icouldntfindname] == True:
             if icouldntfindname[1] == "k":
                 if not (game.board[piece+1] == game.board[piece+2] == Pieces.Empty): continue
-                if isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == True: continue
+                if isTheSquareThreatened(game, piece, 1-numColour) == True or  isTheSquareThreatened(game, piece+1, 1-numColour) == True: continue
                 target = numColour*56 + 6; rook = numColour*56 + 7; rookgoesto = numColour*56+5
 
             if icouldntfindname[1] == "q": 
                 if not (game.board[piece-1] == game.board[piece-2] == game.board[piece-3] == Pieces.Empty): continue
-                if isTheSquareThreatened(game, piece-1, 1-game.board[piece][0]) == isTheSquareThreatened(game, piece+1, 1-game.board[piece][0]) == True: continue
+                if isTheSquareThreatened(game, piece-1, 1-game.board[piece][0]) == True or isTheSquareThreatened(game, piece, 1-game.board[piece][0]) == True: continue
                 target = numColour*56 + 2; rook = numColour*56    ; rookgoesto = numColour*56+3
                
             moves.append(Move(piece, target, game.board[piece], Pieces.Empty, special=("castle", Move(rook, rookgoesto, (game.board[piece][0], Pieces.Rook), Pieces.Empty))))
@@ -485,7 +505,8 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
 
     for threat in normalMovement(game, square, False, True, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Diagonal Threats
         if board[threat.end] == Pieces.Empty: continue
-        if board[threat.end][1] in [Pieces.Queen, Pieces.Bishop]: return True
+        if board[threat.end][1] in [Pieces.Queen, Pieces.Bishop]:
+            return True
 
     for threat in normalMovement(game, square, True, False, ignoreerroronthereisnopiece=True, piececolour=1 - whoIsEnemy): # Straight Threats
         if board[threat.end] == Pieces.Empty: continue

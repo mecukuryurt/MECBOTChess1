@@ -68,11 +68,6 @@ game = gm.Chess("r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 3
 
 moves = gm.getLegalMoves(game)
 
-for move in moves:
-    start = gm.writeFEN(game)
-    game.move(move)
-    game.undoMove(move)
-    end = gm.writeFEN(game)
     # print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc, start == end)
     
 # print(gm.getMoveCount(game, depth=4))
@@ -81,5 +76,5 @@ for move in moves:
 
 print(gm.writeFEN(game))
 s = time.time()
-print(gm.getMoveCount(game, depth=4))
+print(gm.getMoveCount(game, depth=3))
 print(time.time() - s)
