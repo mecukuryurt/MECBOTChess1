@@ -19,6 +19,12 @@ class Chess:
         self.halfmove = output[4]
         self.fullmove = output[5]
         self.moves = []
+        if self.enPassant != None:
+            if self.enPassant >= 16 and self.enPassant <= 23: # Black played a double forward move
+                self.moves.append(Move(self.enPassant - 8, self.enPassant + 8, (Pieces.Black, Pieces.Pawn), Pieces.Empty))
+            if self.enPassant >= 40 and self.enPassant <= 47: # White played a double forward move
+                self.moves.append(Move(self.enPassant + 8, self.enPassant - 8, (Pieces.White, Pieces.Pawn), Pieces.Empty))
+        self.castlingAtTheBeginning = self.castle
 
     def readFEN(self, fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         board = []
@@ -73,10 +79,17 @@ class Chess:
 
         self.moves.append(move)        
 
-        if move.specialMoveType == None: 
+        self.enPassant = None
+
+        if move.specialMoveType == None:
             self.board[move.start] = Pieces.Empty
             self.board[move.end]   = piece
 
+            if piece[1] == Pieces.Pawn: # Check if there will be En Passant available after this move
+                if abs(move.start - move.end) == 16: # Double forward move
+                    if self.board[move.end+1] == (1 - piece[0], Pieces.Pawn) or self.board[move.end-1] == (1 - piece[0], Pieces.Pawn): # En passant available
+                        self.enPassant = (move.start - move.end) / 2 + move.end
+                    
         else:
             if move.specialMoveType == "enp":
                 self.board[move.start] = Pieces.Empty
@@ -128,7 +141,7 @@ class Chess:
         
         self.moves.pop()
 
-        if move.specialMoveType == None: 
+        if move.specialMoveType == None:
             self.board[move.end]   = move.targetedPiece
             self.board[move.start] = piece
 
@@ -139,7 +152,7 @@ class Chess:
                 self.board[move.specialMoveDesc] = (1 - piece[0], Pieces.Pawn)
 
             elif move.specialMoveType == "castle":
-                self.board[move.start] = piece
+                self.board[move.start] = (piece[0], Pieces.King)
                 self.board[move.end]   = Pieces.Empty
                 self.board[move.specialMoveDesc.start] = move.specialMoveDesc.piece
                 self.board[move.specialMoveDesc.end]   = Pieces.Empty
@@ -157,21 +170,33 @@ class Chess:
         castle                    Castling              Gives the rook movement when played
         pro                     Pawn Promotion          Gives the promotion option for pawn (PieceType)
         """
+
+        if len(self.moves) != 0:
+            if self.moves[-1].piece[1] == Pieces.Pawn: # Check if there will be En Passant available after this move
+                latestMove = self.moves[-1]
+                if abs(latestMove.start - latestMove.end) == 16: # Double forward move
+                    if self.board[latestMove.end+1] == (1 - latestMove.piece[0], Pieces.Pawn) or self.board[latestMove.end-1] == (1 - latestMove.piece[0], Pieces.Pawn): # En passant available
+                        self.enPassant = (latestMove.start - latestMove.end) / 2 + latestMove.end
+
         # White King     White Kingside Rook            
         wk = 0; wqr = 0; wkr = 0 
         #       White Queenside Rook 
 
         bk = 0; bqr = 0; bkr = 0
 
+        if self.castlingAtTheBeginning["wk"] == False: wk += 1; wkr += 1
+        if self.castlingAtTheBeginning["wq"] == False: wk += 1; wqr += 1
+        if self.castlingAtTheBeginning["bk"] == False: bk += 1; bkr += 1
+        if self.castlingAtTheBeginning["bq"] == False: bk += 1; bqr += 1
+
         for lastmove in self.moves:
             # Update castling rights
             movedpiece = lastmove.piece
-            if movedpiece[1] == Pieces.King:
+            if movedpiece[1] == Pieces.King: 
                 self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "k"] = False
                 self.castle[{0:"b", 1:"w"}[movedpiece[0]] + "q"] = False
                 if movedpiece[0] == Pieces.Black: bk += 1
                 if movedpiece[0] == Pieces.White: wk += 1
-
 
             # Update castling rights
             if movedpiece[1] == Pieces.Rook:
@@ -295,21 +320,21 @@ def stringToMove(game: Chess, move: str):
     endsq = coordToNum(end)
     if len(move) == 5 and game.board[startsq][1] == Pieces.Pawn: # Pawn Promotion
         special = Pieces.ttp[move[-1]]
-        return Move(startsq, endsq, game.board[startsq], special=("pro", special))
+        return Move(startsq, endsq, game.board[startsq], game.board[endsq], special=("pro", special))
     
     if game.board[startsq][1] == Pieces.King and abs(startsq - endsq) == 2: # Castling 
         colour = {0:"b",1:"w"}[game.board[startsq][0]]
         numColour = game.board[startsq][0]
-        if abs(startsq - endsq) < 0: rook = numColour*56 + 7; rookgoesto = numColour*56+5 # Castle kingside
-        if abs(startsq - endsq) > 0: rook = numColour*56;     rookgoesto = numColour*56+3 # Castle queenside   
+        if startsq - endsq < 0: rook = numColour*56 + 7; rookgoesto = numColour*56+5 # Castle kingside
+        if startsq - endsq > 0: rook = numColour*56;     rookgoesto = numColour*56+3 # Castle queenside   
             
-        return Move(startsq, endsq, game.board[startsq], special=("castle", Move(rook, rookgoesto, (game.board[startsq][0], Pieces.Rook))))
+        return Move(startsq, endsq, game.board[startsq], Pieces.Empty, special=("castle", Move(rook, rookgoesto, (game.board[startsq][0], Pieces.Rook), Pieces.Empty)))
     
     if game.board[endsq] == Pieces.Empty and game.board[startsq][1] == Pieces.Pawn: # En Passant
-        return Move(startsq, endsq, game.board[startsq], ("enp", int(endsq + (game.board[startsq][0]-0.5)*16)))
+        return Move(startsq, endsq, game.board[startsq], Pieces.Empty, ("enp", int(endsq + (game.board[startsq][0]-0.5)*16)))
     
     else:
-        return Move(startsq, endsq, game.board[startsq], (None, None))
+        return Move(startsq, endsq, game.board[startsq], game.board[endsq], (None, None))
 
 ################## PIECE MOVEMENTS ######################
 def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = True, limit = None, ignoreerroronthereisnopiece:bool = False, piececolour = 2):
@@ -526,7 +551,8 @@ def getMoveCount(game:Chess = Chess(), depth:int = 1):
         moveCount = 0
         for move in getLegalMoves(game):
             game.move(move, True)
-            moveCount += getMoveCount(game, depth-1)
+            moveCountFromRecrFunc = getMoveCount(game, depth-1)
+            moveCount += moveCountFromRecrFunc
             game.undoMove(move, True)
     return moveCount
 

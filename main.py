@@ -64,9 +64,12 @@ def startBot():
             if event["type"] == "gameFinish":
                 areWePlaying = False
 
-game = gm.Chess("r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 3 3")
+game = gm.Chess("r1b1k2r/2ppqpbp/1pn2np1/pBP1p3/N3P3/1P3N2/P1QP1PPP/R1B1K2R w KQkq - 2 10")
+print(game.castle)
 
 moves = gm.getLegalMoves(game)
+
+print(game.castle)
 
     # print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc, start == end)
     
@@ -76,5 +79,15 @@ moves = gm.getLegalMoves(game)
 
 print(gm.writeFEN(game))
 s = time.time()
-print(gm.getMoveCount(game, depth=3))
+print(gm.getMoveCount(game, depth=4))
 print(time.time() - s)
+
+"""
+print(game.castle)
+game.move(gm.stringToMove(game, "e1g1"))
+print(gm.writeFEN(game))
+
+print(game.castle)
+
+moves = gm.getLegalMoves(game)
+"""
