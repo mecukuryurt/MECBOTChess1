@@ -31,7 +31,7 @@ def startBot():
             
             if event["type"] == "gameStart": 
                 gameid = event["game"]["gameId"]
-                game = gm.Chess(event["game"]["fen"])
+                game = gm.Chess(gm.readFEN(event["game"]["fen"]))
                 colourtext = event["game"]["color"]
                 colour = 1 if colourtext == "white" else 0
                 break
@@ -63,31 +63,3 @@ def startBot():
 
             if event["type"] == "gameFinish":
                 areWePlaying = False
-
-game = gm.Chess("r1b1k2r/2ppqpbp/1pn2np1/pBP1p3/N3P3/1P3N2/P1QP1PPP/R1B1K2R w KQkq - 2 10")
-print(game.castle)
-
-moves = gm.getLegalMoves(game)
-
-print(game.castle)
-
-    # print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc, start == end)
-    
-# print(gm.getMoveCount(game, depth=4))
-
-# for move in moves: print(gm.numToCoord(move.start), gm.numToCoord(move.end), move.specialMoveType, move.specialMoveDesc)
-
-print(gm.writeFEN(game))
-s = time.time()
-print(gm.getMoveCount(game, depth=4))
-print(time.time() - s)
-
-"""
-print(game.castle)
-game.move(gm.stringToMove(game, "e1g1"))
-print(gm.writeFEN(game))
-
-print(game.castle)
-
-moves = gm.getLegalMoves(game)
-"""
