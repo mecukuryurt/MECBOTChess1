@@ -63,3 +63,9 @@ def startBot():
 
             if event["type"] == "gameFinish":
                 areWePlaying = False
+
+game = gm.readFEN()
+t1 = time.time()
+result = gm.getBestEvaluation(game, 3)
+t2 = time.time()
+print(result[0], gm.moveToString(result[1]), t2- t1)

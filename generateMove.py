@@ -8,6 +8,7 @@ class Move:
         self.targetedPiece = targetedpiece
 
 class Chess:
+    infinity = 9999999
     startingBoard = [(0, 4), (0, 2), (0, 3), (0, 5), (0, 6), (0, 3), (0, 2), (0, 4), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 4), (1, 2), (1, 3), (1, 5), (1, 6), (1, 3), (1, 2), (1, 4)]
     def __init__(self, board: list = startingBoard, turn: bool = 1, castling: dict = {"wk": True,"wq": True,"bk": True,"bq": True}, enPassant:int = None, halfmove:int = 0, fullmove:int = 0, moves:list = [], castlingAtTheBeginning: list = {"wk": True,"wq": True,"bk": True,"bq": True}):
         self.board = board
@@ -488,7 +489,7 @@ def evaluate(game:Chess):
     whiteMobility = getMoveCount(game, 1)
 
     isWkingInCheck = isTheSquareThreatened(game, kings[1], 0)
-    if whiteMobility == 0 and isWkingInCheck: return -9999999
+    if whiteMobility == 0 and isWkingInCheck: return -Chess.infinity
     if whiteMobility == 0 and not isWkingInCheck: return "stalemate"
 
     # Calculate legal moves of black
@@ -496,7 +497,7 @@ def evaluate(game:Chess):
     blackMobility = getMoveCount(game, 1)
 
     isBkingInCheck = isTheSquareThreatened(game, kings[0], 1)
-    if blackMobility == 0 and isBkingInCheck: return 9999999
+    if blackMobility == 0 and isBkingInCheck: return Chess.infinity
     if blackMobility == 0 and not isBkingInCheck: return "stalemate"
 
     evaluation += (whiteMobility - blackMobility) / 10
@@ -549,3 +550,18 @@ def evaluate(game:Chess):
     evaluation -= (isolated + doubled + blocked) / 2
 
     return evaluation
+
+def getBestEvaluation(game:Chess = readFEN(), depth=1):
+	if depth == 0: return evaluate(game), 0
+	else:
+		evaluations = {}
+		moves = getLegalMoves(game)
+		altGame = game.backupTheGame() # Alternative Game
+		for move in moves:
+			altGame.move(move)
+			result = getBestEvaluation(altGame, depth-1)
+			evaluation = result[0] * game.turn
+			evaluations[evaluation] = move
+			bestEval = max(evaluations.keys())
+
+			return bestEval, evaluations[bestEval] # bestEval, bestMove
