@@ -481,24 +481,25 @@ def evaluate(game:Chess):
 
     evaluation = 0
 
-    kings = [i for i, piece in enumerate(board) if piece[1] == Pieces.King]
-    if board[kings[0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[00]
+    kings = [(i, piece[0]) for i, piece in enumerate(board) if piece[1] == Pieces.King]
+    if board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
+    # after this swap operation, list should look like this: [(Black King Square, Colour Black), (White King Square, Colour White)]
 
     # Calculate legal moves of white
     game.turn = Pieces.White
     whiteMobility = getMoveCount(game, 1)
 
-    isWkingInCheck = isTheSquareThreatened(game, kings[1], 0)
+    isWkingInCheck = isTheSquareThreatened(game, kings[1][0], 0)
     if whiteMobility == 0 and isWkingInCheck: return -Chess.infinity
-    if whiteMobility == 0 and not isWkingInCheck: return "stalemate"
+    if whiteMobility == 0 and not isWkingInCheck: return 0 # stalemate btw
 
     # Calculate legal moves of black
     game.turn = Pieces.Black
     blackMobility = getMoveCount(game, 1)
 
-    isBkingInCheck = isTheSquareThreatened(game, kings[0], 1)
+    isBkingInCheck = isTheSquareThreatened(game, kings[0][0], 1)
     if blackMobility == 0 and isBkingInCheck: return Chess.infinity
-    if blackMobility == 0 and not isBkingInCheck: return "stalemate"
+    if blackMobility == 0 and not isBkingInCheck: return 0 # stalemate
 
     evaluation += (whiteMobility - blackMobility) / 10
 
@@ -552,16 +553,26 @@ def evaluate(game:Chess):
     return evaluation
 
 def getBestEvaluation(game:Chess = readFEN(), depth=1):
-	if depth == 0: return evaluate(game), 0
-	else:
-		evaluations = {}
-		moves = getLegalMoves(game)
-		altGame = game.backupTheGame() # Alternative Game
-		for move in moves:
-			altGame.move(move)
-			result = getBestEvaluation(altGame, depth-1)
-			evaluation = result[0] * game.turn
-			evaluations[evaluation] = move
-			bestEval = max(evaluations.keys())
+    if depth == 0: return evaluate(game), 0
+    else:
+        evaluations = {}
+        moves = getLegalMoves(game)
+        for move in moves:
+            altGame = game.backupTheGame() # Alternative Game
+            altGame.move(move)
+            result = getBestEvaluation(altGame, depth-1)
+            evaluation = result[0] * game.turn
+            evaluations[move] = evaluation
+            del altGame
+        
+        bestEval = 0
+        bestMoves = []
+        for possibleMove in evaluations.keys():
+            if evaluations[possibleMove] > bestEval:
+                bestMoves.clear()
+                bestEval = evaluations[possibleMove]
+                bestMoves.append(possibleMove)
+            if evaluations[possibleMove] == bestEval:
+                bestMoves.append(possibleMove)
 
-			return bestEval, evaluations[bestEval] # bestEval, bestMove
+        return bestEval, bestMoves[0]  # bestEval, bestMove
