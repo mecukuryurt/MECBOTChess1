@@ -552,27 +552,33 @@ def evaluate(game:Chess):
 
     return evaluation
 
-def getBestEvaluation(game:Chess = readFEN(), depth=1):
-    if depth == 0: return evaluate(game), 0
-    else:
-        evaluations = {}
-        moves = getLegalMoves(game)
-        for move in moves:
-            altGame = game.backupTheGame() # Alternative Game
-            altGame.move(move)
-            result = getBestEvaluation(altGame, depth-1)
-            evaluation = result[0] * game.turn
-            evaluations[move] = evaluation
-            del altGame
-        
-        bestEval = 0
-        bestMoves = []
-        for possibleMove in evaluations.keys():
-            if evaluations[possibleMove] > bestEval:
-                bestMoves.clear()
-                bestEval = evaluations[possibleMove]
-                bestMoves.append(possibleMove)
-            if evaluations[possibleMove] == bestEval:
-                bestMoves.append(possibleMove)
+def getBestEvaluation(game:Chess = readFEN, depth = 1):
+    def alphaBeta(game:Chess = readFEN(), alpha = 0, beta = 0, depth = 1):
+        pass
 
-        return bestEval, bestMoves[0]  # bestEval, bestMove
+    def minimax(game:Chess = readFEN(), depth=1):
+        if depth == 0: return evaluate(game), 0
+        else:
+            evaluations = {}
+            moves = getLegalMoves(game)
+            for move in moves:
+                altGame = game.backupTheGame() # Alternative Game
+                altGame.move(move)
+                result = minimax(altGame, depth-1)
+                evaluation = result[0] * game.turn
+                evaluations[move] = evaluation
+                del altGame
+            
+            bestEval = 0
+            bestMoves = []
+            for possibleMove in evaluations.keys():
+                if evaluations[possibleMove] > bestEval:
+                    bestMoves.clear()
+                    bestEval = evaluations[possibleMove]
+                    bestMoves.append(possibleMove)
+                if evaluations[possibleMove] == bestEval:
+                    bestMoves.append(possibleMove)
+
+            return bestEval, bestMoves[0]  # bestEval, bestMove
+        
+    return minimax(game, depth)
