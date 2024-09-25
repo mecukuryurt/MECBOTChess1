@@ -289,7 +289,7 @@ def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = 
             if piecethere == Pieces.Empty: # there is no piece
                 probs.append(Move(piece, num, board[piece], piecethere))
 
-            elif piecethere[0] == 1 - piececolour: # Enemy piece
+            elif piecethere[0] == 1 - piececolour and piecethere[1] != Pieces.King: # Enemy piece
                 probs.append(Move(piece, num, board[piece], piecethere))
                 break
 
@@ -553,12 +553,47 @@ def evaluate(game:Chess):
     return evaluation
 
 def getBestEvaluation(game:Chess = readFEN, depth = 1):
-    def alphaBeta(game:Chess = readFEN(), alpha = 0, beta = 0, depth = 1):
-        pass
+    def alphaBeta(game:Chess = readFEN(), alpha = -Chess.infinity, beta = Chess.infinity, depth = 1):
+        if depth == 0 or abs(evaluate(game)) == Chess.infinity: return evaluate(game), 0
+        else:
+            if game.turn == Pieces.White: # Maximizing player
+                maxEval = -Chess.infinity
+                moves = getLegalMoves(game)
+
+                for move in moves:
+                    altGame = game.backupTheGame()
+                    altGame.move(move)
+                    result = alphaBeta(altGame, alpha, beta, depth-1)
+
+                    maxEval = max(maxEval, result[0])
+                    alpha = max(alpha, result[0])
+
+                    if beta <= alpha: break
+                    del altGame
+                
+                return maxEval, move
+
+            if game.turn == Pieces.Black: # Minimizing player
+                minEval = +Chess.infinity
+                moves = getLegalMoves(game)
+
+                for move in moves:
+                    altGame = game.backupTheGame()
+                    altGame.move(move)
+                    result = alphaBeta(altGame, alpha, beta, depth-1)
+
+                    minEval = min(minEval, result[0])
+                    alpha = min(beta, result[0])
+
+                    if beta <= alpha: break
+                    del altGame
+                
+                return minEval, move
 
     def minimax(game:Chess = readFEN(), depth=1):
-        if depth == 0: return evaluate(game), 0
-        else:
+        currentEval = evaluate(game)
+        if depth == 0 or abs(currentEval) == Chess.infinity: return currentEval, 0 # eval, bestMove
+        else: 
             evaluations = {}
             moves = getLegalMoves(game)
             for move in moves:
@@ -581,4 +616,5 @@ def getBestEvaluation(game:Chess = readFEN, depth = 1):
 
             return bestEval, bestMoves[0]  # bestEval, bestMove
         
-    return minimax(game, depth)
+    # return alphaBeta(game, -Chess.infinity, Chess.infinity, depth)
+    return alphaBeta(game, depth = depth)
