@@ -476,6 +476,32 @@ def getMoveCount(game:Chess = readFEN(), depth:int = 1):
             # game.undoMove(move, True)
     return moveCount
 
+def isKingInCheck(game:Chess, whichKing:int = Pieces.White): # The output = (isKingInCheck, isCheckMate)
+    kings = [(i, piece[0]) for i, piece in enumerate(board) if piece[1] == Pieces.King]
+    if board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
+
+    gameTurnBackup = game.turn
+    if whichKing == Pieces.White:
+        # Calculate legal moves of white
+        game.turn = Pieces.White
+        whiteMobility = getMoveCount(game, 1)
+
+        isWkingInCheck = isTheSquareThreatened(game, kings[1][0], 0)
+        game.turn = gameTurnBackup
+        if whiteMobility == 0 and isWkingInCheck: return True, True
+        if whiteMobility != 0 and isWkingInCheck: return True, False
+
+    if whichKing == Pieces.Black:
+        # Calculate legal moves of black
+        game.turn = Pieces.Black
+        blackMobility = getMoveCount(game, 1)
+
+        isBkingInCheck = isTheSquareThreatened(game, kings[0][0], 1)
+        game.turn = gameTurnBackup
+        if blackMobility == 0 and isBkingInCheck: return True, True
+        if blackMobility != 0 and isBkingInCheck: return True, False
+
+
 def evaluate(game:Chess):
     board = game.board
 
@@ -485,6 +511,7 @@ def evaluate(game:Chess):
     if board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
     # after this swap operation, list should look like this: [(Black King Square, Colour Black), (White King Square, Colour White)]
 
+    gameTurnBackup = game.turn
     # Calculate legal moves of white
     game.turn = Pieces.White
     whiteMobility = getMoveCount(game, 1)
@@ -500,6 +527,8 @@ def evaluate(game:Chess):
     isBkingInCheck = isTheSquareThreatened(game, kings[0][0], 1)
     if blackMobility == 0 and isBkingInCheck: return Chess.infinity
     if blackMobility == 0 and not isBkingInCheck: return 0 # stalemate
+
+    game.turn = gameTurnBackup
 
     evaluation += (whiteMobility - blackMobility) / 10
 
@@ -552,18 +581,18 @@ def evaluate(game:Chess):
 
     return evaluation
 
-def getBestEvaluation(game:Chess = readFEN, depth = 1):
-    def alphaBeta(game:Chess = readFEN(), alpha = -Chess.infinity, beta = Chess.infinity, depth = 1):
+def getBestEvaluation(game:Chess = readFEN(), depth = 1):
+    def alphaBeta(game:Chess = readFEN(), alpha = -Chess.infinity, beta = Chess.infinity, depth = 1, maximizingPlayer = bool(game.turn)):
         if depth == 0 or abs(evaluate(game)) == Chess.infinity: return evaluate(game), 0
         else:
-            if game.turn == Pieces.White: # Maximizing player
+            if maximizingPlayer: # Maximizing player # game.turn == Pieces.White
                 maxEval = -Chess.infinity
                 moves = getLegalMoves(game)
 
                 for move in moves:
                     altGame = game.backupTheGame()
                     altGame.move(move)
-                    result = alphaBeta(altGame, alpha, beta, depth-1)
+                    result = alphaBeta(altGame, alpha, beta, depth-1, False)
 
                     maxEval = max(maxEval, result[0])
                     alpha = max(alpha, result[0])
@@ -573,17 +602,17 @@ def getBestEvaluation(game:Chess = readFEN, depth = 1):
                 
                 return maxEval, move
 
-            if game.turn == Pieces.Black: # Minimizing player
+            else: # Minimizing player # if game.turn == Pieces.Black
                 minEval = +Chess.infinity
                 moves = getLegalMoves(game)
 
                 for move in moves:
                     altGame = game.backupTheGame()
                     altGame.move(move)
-                    result = alphaBeta(altGame, alpha, beta, depth-1)
+                    result = alphaBeta(altGame, alpha, beta, depth-1, True)
 
                     minEval = min(minEval, result[0])
-                    alpha = min(beta, result[0])
+                    beta = min(beta, result[0])
 
                     if beta <= alpha: break
                     del altGame
@@ -617,4 +646,4 @@ def getBestEvaluation(game:Chess = readFEN, depth = 1):
             return bestEval, bestMoves[0]  # bestEval, bestMove
         
     # return alphaBeta(game, -Chess.infinity, Chess.infinity, depth)
-    return alphaBeta(game, depth = depth)
+    return alphaBeta(game, -Chess.infinity, Chess.infinity, depth, bool(game.turn))
