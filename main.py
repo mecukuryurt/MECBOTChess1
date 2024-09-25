@@ -64,7 +64,8 @@ def startBot():
             if event["type"] == "gameFinish":
                 areWePlaying = False
 
-game = gm.readFEN("r4rk1/p7/1q2b2p/3p1pp1/2P2p2/8/PPQN1nPP/R1B2RK1 b - - 0 1")
+# game = gm.readFEN("r4rk1/p7/1q2b2p/3p1pp1/2P2p2/8/PPQN1nPP/R1B2RK1 b - - 0 1")
+game = gm.readFEN("q2r3k/6pp/8/3Q2N1/8/8/5PPP/6K1 w - - 0 1")
 
 print(game.turn)
 t1 = time.time()
