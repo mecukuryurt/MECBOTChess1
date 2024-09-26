@@ -7,7 +7,7 @@ import time
 print("Done")
 
 def strategy(game:gm.Chess):
-    return random.choice(gm.getLegalMoves(game))
+    return gm.getBestEvaluation(game, 2)[1]
 
 def startBot():
     with open(str(pathlib.Path(__file__).parent.resolve())+"\\TOKEN.txt", "r") as f: TOKEN = f.read()
@@ -21,7 +21,7 @@ def startBot():
         for event in client.bots.stream_incoming_events():
             print("EVENT", event)
             if event["type"] == "challenge" and not areWePlaying:
-                if event["challenge"]["variant"]["key"] == "standard" and event["challenge"]["rated"] == False: # event["challenge"]["challenger"]["name"] == "Ertugrul2010"
+                if event["challenge"]["variant"]["key"] in "standardfromPosition" and event["challenge"]["rated"] == False: # event["challenge"]["challenger"]["name"] == "Ertugrul2010"
                     gameid = event["challenge"]["id"]
                     client.bots.accept_challenge(gameid)
                     areWePlaying = True
@@ -31,14 +31,17 @@ def startBot():
             
             if event["type"] == "gameStart": 
                 gameid = event["game"]["gameId"]
-                game = gm.Chess(gm.readFEN(event["game"]["fen"]))
+                game = gm.readFEN(event["game"]["fen"])
                 colourtext = event["game"]["color"]
                 colour = 1 if colourtext == "white" else 0
                 break
         
         for event in client.bots.stream_game_state(gameid):
             print("GAMESTATE", event)
+            try: colour = 1 if event["white"]["id"] == "mecbotchess1" else 0
+            except: pass
             if event["type"] == "gameFull" and len(event["state"]["moves"].split()) % 2 == 1 - colour:
+                print("CALCULATE", gm.writeFEN(game))
                 move = strategy(game)
                 movetext = gm.moveToString(move)
                 print("I PLAYED: ", movetext, game.turn)
@@ -58,7 +61,7 @@ def startBot():
                         game.move(move)
                         print("I MOVED: ", movetext, game.turn)
                     
-                    if event["status"] == "mate":
+                    if event["status"] in "materesign":
                         client.bots.post_message(gameid, "Good Game! "+("Prepare yourself for another game!" if event["winner"] == colourtext else "You win!"))
 
             if event["type"] == "gameFinish":
@@ -66,11 +69,15 @@ def startBot():
 
 # game = gm.readFEN("r4rk1/p7/1q2b2p/3p1pp1/2P2p2/8/PPQN1nPP/R1B2RK1 b - - 0 1")
 # game = gm.readFEN("q2r3k/6pp/8/3Q2N1/8/8/5PPP/6K1 w - - 0 1")
-game = gm.readFEN("q2r3k/6pp/7N/3Q4/8/8/5PPP/6K1 w - - 4 3")
+# game = gm.readFEN("q2r3k/6pp/7N/3Q4/8/8/5PPP/6K1 w - - 4 3")
+game = gm.readFEN("8/8/7p/6N1/6k1/8/5PPP/6K1 b - - 1 8")
+
 
 print(game.turn)
 t1 = time.time()
-result = gm.getBestEvaluation(game, 3)
+result = gm.getBestEvaluation(game, 7)
 t2 = time.time()
 print(game.turn)
 print(result[0], gm.moveToString(result[1]), t2- t1)
+
+# startBot()

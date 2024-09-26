@@ -250,24 +250,25 @@ def stringToMove(game: Chess, move: str):
         return Move(startsq, endsq, game.board[startsq], game.board[endsq], (None, None))
 
 ################## PIECE MOVEMENTS ######################
+def isNearToBorder(num):
+    row = num // 8
+    col = num % 8
+    if   (row == 7) and not (col in [0, 7]): return +8, +7, +9 ## Bottom edge
+    elif (row == 0) and not (col in [0, 7]): return -8, -7, -9 ## Top edge
+    elif (col == 7) and not (row in [0, 7]): return +1, -7, +9 ## Right edge
+    elif (col == 0) and not (row in [0, 7]): return -1, -9, +7 ## Left edge
+
+    elif (row == 0) and (col == 0): return -9, -8, -7, -1, +7 ## Top-left corner
+    elif (row == 0) and (col == 7): return -7, -9, -8, +1, +9 ## Top-right corner
+    elif (row == 7) and (col == 0): return +7, -9, -1, +8, +9 ## Bottom-left corner
+    elif (row == 7) and (col == 7): return +9, +7, +8, -7, +1 ## Bottom-right corner
+    # return Where cannot the piece go
+
+    else: return [False]
+
 def normalMovement(game:Chess, piece:int, straight:bool = True, diagonal:bool = True, limit = None, ignoreerroronthereisnopiece:bool = False, piececolour = 2):
     if not straight and not diagonal: return []
     if piececolour == 2: piececolour = game.board[piece][0]
-    def isNearToBorder(num):
-        row = num // 8
-        col = num % 8
-        if   (row == 7) and not (col in [0, 7]): return +8, +7, +9 ## Bottom edge
-        elif (row == 0) and not (col in [0, 7]): return -8, -7, -9 ## Top edge
-        elif (col == 7) and not (row in [0, 7]): return +1, -7, +9 ## Right edge
-        elif (col == 0) and not (row in [0, 7]): return -1, -9, +7 ## Left edge
-
-        elif (row == 0) and (col == 0): return -9, -8, -7, -1, +7 ## Top-left corner
-        elif (row == 0) and (col == 7): return -7, -9, -8, +1, +9 ## Top-right corner
-        elif (row == 7) and (col == 0): return +7, -9, -1, +8, +9 ## Bottom-left corner
-        elif (row == 7) and (col == 7): return +9, +7, +8, -7, +1 ## Bottom-right corner
-        # return Where cannot the piece go
-
-        else: return [False]
 
     board = game.board
     if board[piece] == Pieces.Empty and not ignoreerroronthereisnopiece: raise TypeError("An empty square given, expected a piece")
@@ -342,17 +343,23 @@ def getPawnMovement   (game:Chess, piece:int):
         Pieces.White: (0, 7),
         Pieces.Black: (56, 63)
     }
+
     direction = -8 if pawn[0] == Pieces.White else +8
-    captures = (piece+1+direction, piece-1+direction)
+    captures = []
+    if 1+direction not in isNearToBorder(piece): captures.append(piece+1+direction) # Diagonal movement generates issues when the piece is at the border
+    if direction-1 not in isNearToBorder(piece): captures.append(piece-1+direction)
+
     if piece >= startingsquaresforpawns[pawn[0]][0] and piece <= startingsquaresforpawns[pawn[0]][1]: # Double pawn move
         if board[piece + (direction*2)] == Pieces.Empty and board[piece + direction] == Pieces.Empty: moves.append(Move(piece, piece+(direction*2), pawn, board[piece + (direction*2)]))
     
                                 # is enp targeting the black pieces? == is the piece white?
     if game.enPassant != None and (game.enPassant < 24) == (pawn[0] == Pieces.White) and game.enPassant in captures: # There is en Passant!
-        if captures[0] == game.enPassant:
-            moves.append(Move(piece, captures[0], pawn, board[captures[0]], special = ("enp", int(captures[0] + (pawn[0]-0.5)*16))))
-        if captures[1] == game.enPassant:
-            moves.append(Move(piece, captures[1], pawn, board[captures[0]], special = ("enp", int(captures[1] + (pawn[0]-0.5)*16))))
+        try: 
+            if captures[0] == game.enPassant: moves.append(Move(piece, captures[0], pawn, board[captures[0]], special = ("enp", int(captures[0] + (pawn[0]-0.5)*16))))
+        except: pass
+        try: 
+            if captures[1] == game.enPassant: moves.append(Move(piece, captures[1], pawn, board[captures[0]], special = ("enp", int(captures[1] + (pawn[0]-0.5)*16))))
+        except: pass
 
     if board[piece+direction] == Pieces.Empty: # Simple forward move
         if piece+direction >= promotionranges[pawn[0]][0] and piece+direction <= promotionranges[pawn[0]][1]:
@@ -423,9 +430,20 @@ def getLegalMoves(game:Chess):
         altgame.move(move, ignoreerroronnotyourturn=True)
         for i, piece in enumerate(altgame.board):
             if piece[0] == turn and piece[1] == Pieces.King:
+                # Check if the kings are at neigbouring squares.
+                doKingsSeeEachOther = False
+                for drc in [-9,-8,-7,-1,1,7,8,9]:
+                    try:
+                        if altgame.board[i + drc][1] == Pieces.King:
+                            doKingsSeeEachOther = True
+                            break
+                    except: pass
+                if doKingsSeeEachOther: break
+
                 isKingInCheck = isTheSquareThreatened(altgame, i, 1-turn)
                 if not isKingInCheck:
                     legalMoves.append(move)
+                    break
         # print(moveToString(move), game.castle, altgame.castle)
         del altgame
         # game.undoMove(move, ignoreerroronnotyourturn=True)
@@ -455,7 +473,12 @@ def isTheSquareThreatened(game:Chess, square:int, whoIsEnemy):
 
     # Pawn Threats
     direction = -8 if whoIsEnemy == Pieces.Black else +8
-    for threat in (square+1+direction, square-1+direction):
+    captures = []
+    if 1+direction not in isNearToBorder(square): captures.append(square+1+direction)
+    if direction-1 not in isNearToBorder(square): captures.append(square-1+direction)
+
+    for threat in captures:
+        # print(writeFEN(game))
         if board[threat][0] == whoIsEnemy and abs((threat%8) - (square%8)) == 1 and board[threat][1] in (Pieces.Queen, Pieces.Bishop, Pieces.Pawn): return True
         else: continue
 
@@ -477,8 +500,8 @@ def getMoveCount(game:Chess = readFEN(), depth:int = 1):
     return moveCount
 
 def isKingInCheck(game:Chess, whichKing:int = Pieces.White): # The output = (isKingInCheck, isCheckMate)
-    kings = [(i, piece[0]) for i, piece in enumerate(board) if piece[1] == Pieces.King]
-    if board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
+    kings = [(i, piece[0]) for i, piece in enumerate(game.board) if piece[1] == Pieces.King]
+    if game.board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
 
     gameTurnBackup = game.turn
     if whichKing == Pieces.White:
@@ -490,6 +513,7 @@ def isKingInCheck(game:Chess, whichKing:int = Pieces.White): # The output = (isK
         game.turn = gameTurnBackup
         if whiteMobility == 0 and isWkingInCheck: return True, True
         if whiteMobility != 0 and isWkingInCheck: return True, False
+        if not isWkingInCheck: return False, None # idk if it's checkmate or not
 
     if whichKing == Pieces.Black:
         # Calculate legal moves of black
@@ -500,7 +524,28 @@ def isKingInCheck(game:Chess, whichKing:int = Pieces.White): # The output = (isK
         game.turn = gameTurnBackup
         if blackMobility == 0 and isBkingInCheck: return True, True
         if blackMobility != 0 and isBkingInCheck: return True, False
+        if not isBkingInCheck: return False, None # idk if it's checkmate or not
 
+def isStalemate(game):
+    kings = [(i, piece[0]) for i, piece in enumerate(game.board) if piece[1] == Pieces.King]
+    if game.board[kings[0][0]][0] == Pieces.White: kings[0], kings[1] = kings[1], kings[0]
+
+    gameTurnBackup = game.turn
+
+    game.turn = Pieces.White
+    whiteMobility = getMoveCount(game, 1)
+
+    isWkingInCheck = isTheSquareThreatened(game, kings[1][0], 0)
+    game.turn = gameTurnBackup
+    if whiteMobility == 0 and not isWkingInCheck and game.turn == Pieces.White: return True
+
+    # Calculate legal moves of black
+    game.turn = Pieces.Black
+    blackMobility = getMoveCount(game, 1)
+
+    isBkingInCheck = isTheSquareThreatened(game, kings[0][0], 1)
+    game.turn = gameTurnBackup
+    if blackMobility == 0 and not isBkingInCheck and game.turn == Pieces.Black: return True
 
 def evaluate(game:Chess):
     board = game.board
@@ -583,11 +628,22 @@ def evaluate(game:Chess):
 
 def getBestEvaluation(game:Chess = readFEN(), depth = 1):
     def alphaBeta(game:Chess = readFEN(), alpha = -Chess.infinity, beta = Chess.infinity, depth = 1, maximizingPlayer = bool(game.turn)):
-        if depth == 0 or abs(evaluate(game)) == Chess.infinity: return evaluate(game), 0
+        if depth == 0 or abs(evaluate(game)) == Chess.infinity or isStalemate: return evaluate(game), 0
         else:
+            moves = getLegalMoves(game)
+
+            movesWithCheck = []
+            for x in moves:
+                altGame = game.backupTheGame()
+                altGame.move(x)
+                if isKingInCheck(altGame, altGame.turn)[0]:
+                    movesWithCheck.append(x)
+                    moves.remove(x)
+                del altGame
+            moves = movesWithCheck + moves
+
             if maximizingPlayer: # Maximizing player # game.turn == Pieces.White
                 maxEval = -Chess.infinity
-                moves = getLegalMoves(game)
 
                 for move in moves:
                     altGame = game.backupTheGame()
@@ -604,7 +660,6 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
 
             else: # Minimizing player # if game.turn == Pieces.Black
                 minEval = +Chess.infinity
-                moves = getLegalMoves(game)
 
                 for move in moves:
                     altGame = game.backupTheGame()
@@ -617,6 +672,7 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
                     if beta <= alpha: break
                     del altGame
                 
+                print(writeFEN(game), len(moves))
                 return minEval, move
 
     def minimax(game:Chess = readFEN(), depth=1):
