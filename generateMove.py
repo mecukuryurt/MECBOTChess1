@@ -432,12 +432,16 @@ def getLegalMoves(game:Chess):
             if piece[0] == turn and piece[1] == Pieces.King:
                 # Check if the kings are at neigbouring squares.
                 doKingsSeeEachOther = False
+                disallowedDirections = isNearToBorder(i)
                 for drc in [-9,-8,-7,-1,1,7,8,9]:
-                    try:
-                        if altgame.board[i + drc][1] == Pieces.King:
-                            doKingsSeeEachOther = True
-                            break
-                    except: pass
+                    if drc not in disallowedDirections:
+                        try:
+                            if altgame.board[i + drc][1] == Pieces.King:
+                                print(numToCoord(i), numToCoord(i+drc))
+                                doKingsSeeEachOther = True
+                                break
+                        except: pass
+                if doKingsSeeEachOther: print(doKingsSeeEachOther)
                 if doKingsSeeEachOther: break
 
                 isKingInCheck = isTheSquareThreatened(altgame, i, 1-turn)
@@ -628,7 +632,7 @@ def evaluate(game:Chess):
 
 def getBestEvaluation(game:Chess = readFEN(), depth = 1):
     def alphaBeta(game:Chess = readFEN(), alpha = -Chess.infinity, beta = Chess.infinity, depth = 1, maximizingPlayer = bool(game.turn)):
-        if depth == 0 or abs(evaluate(game)) == Chess.infinity or isStalemate: return evaluate(game), 0
+        if depth == 0 or abs(evaluate(game)) == Chess.infinity or isStalemate(game): return evaluate(game), 0
         else:
             moves = getLegalMoves(game)
 
@@ -641,6 +645,7 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
                     moves.remove(x)
                 del altGame
             moves = movesWithCheck + moves
+            evaluations = {}
 
             if maximizingPlayer: # Maximizing player # game.turn == Pieces.White
                 maxEval = -Chess.infinity
@@ -652,11 +657,18 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
 
                     maxEval = max(maxEval, result[0])
                     alpha = max(alpha, result[0])
+                    evaluation = result[0]
+                    evaluations[move] = evaluation
 
                     if beta <= alpha: break
                     del altGame
                 
-                return maxEval, move
+                bestMoves = []
+                for possibleMove in evaluations.keys():
+                    if evaluations[possibleMove] == maxEval:
+                        bestMoves.append(possibleMove)
+
+                return maxEval, bestMoves[0]
 
             else: # Minimizing player # if game.turn == Pieces.Black
                 minEval = +Chess.infinity
@@ -668,12 +680,21 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
 
                     minEval = min(minEval, result[0])
                     beta = min(beta, result[0])
+                    evaluation = result[0]
+                    evaluations[move] = evaluation
 
                     if beta <= alpha: break
                     del altGame
+
+                bestMoves = []
+                for possibleMove in evaluations.keys():
+                    if evaluations[possibleMove] == minEval:
+                        bestMoves.append(possibleMove)
                 
-                print(writeFEN(game), len(moves))
-                return minEval, move
+                return minEval, bestMoves[0]
+
+            print("how did you get here")
+            raise Exception("How did you get here! Give the maximizing player!")
 
     def minimax(game:Chess = readFEN(), depth=1):
         currentEval = evaluate(game)
