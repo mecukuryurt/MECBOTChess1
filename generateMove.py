@@ -27,7 +27,7 @@ class Chess:
 
     def move(self, move: Move, ignoreerroronnotyourturn = False):
         piece = self.board[move.start]
-        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print(piece[0], self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print("itsnoturturn", piece, numToCoord(move.start), self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
 
         self.moves.append(move)        
 
@@ -90,51 +90,51 @@ class Chess:
     def backupTheGame(self): return Chess(self.board[:], self.turn, dict(self.castle), self.enPassant, self.halfmove, self.fullmove, self.moves[:], self.castlingAtTheBeginning)
 
 def readFEN(fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
-        board = []
-        pieces    = fen.split(" ")[0]
-        whoseTurn = fen.split(" ")[1]
-        castles   = fen.split(" ")[2]
-        enpassant = fen.split(" ")[3]
-        halfmove  = fen.split(" ")[4]
-        fullmove  = fen.split(" ")[5]
+    board = []
+    pieces    = fen.split(" ")[0]
+    whoseTurn = fen.split(" ")[1]
+    castles   = fen.split(" ")[2]
+    enpassant = fen.split(" ")[3]
+    halfmove  = fen.split(" ")[4]
+    fullmove  = fen.split(" ")[5]
 
-        # Prepearing the board
-        pieces1 = ""
-        for char in pieces: 
-            if char != "/": pieces1 += char
-        # print(pieces1)
-        for piece in pieces1:
-            equivalent = {
-                "r": Pieces.Rook,
-                "n": Pieces.Knight,
-                "b": Pieces.Bishop,
-                "q": Pieces.Queen,
-                "k": Pieces.King,
-                "p": Pieces.Pawn
-            }
-            if not piece.lower() in equivalent.keys():
-                piece = int(piece)
-                pieceCode = (None, None)
-                for i in range(piece): board.append(pieceCode)
-
-            else:
-                pieceNum = equivalent[piece.lower()]
-                color = Pieces.White if piece.isupper() else Pieces.Black
-                pieceCode = (color, pieceNum)
-                board.append(pieceCode)
-
-        whoseTurn = Pieces.White if whoseTurn == "w" else Pieces.Black
-        # print(board)
-        # Parsing the castling situations
-        castling = {"wk": True if "K" in castles else False,
-                    "wq": True if "Q" in castles else False,
-                    "bk": True if "k" in castles else False,
-                    "bq": True if "q" in castles else False
+    # Prepearing the board
+    pieces1 = ""
+    for char in pieces: 
+        if char != "/": pieces1 += char
+    # print(pieces1)
+    for piece in pieces1:
+        equivalent = {
+            "r": Pieces.Rook,
+            "n": Pieces.Knight,
+            "b": Pieces.Bishop,
+            "q": Pieces.Queen,
+            "k": Pieces.King,
+            "p": Pieces.Pawn
         }
-        # Finding the number of the square to make En Passant
-        enp = None if enpassant == "-" else coordToNum(enpassant)
-        
-        return Chess(board, whoseTurn, castling, enp, halfmove, fullmove, [], castling)
+        if not piece.lower() in equivalent.keys():
+            piece = int(piece)
+            pieceCode = (None, None)
+            for i in range(piece): board.append(pieceCode)
+
+        else:
+            pieceNum = equivalent[piece.lower()]
+            color = Pieces.White if piece.isupper() else Pieces.Black
+            pieceCode = (color, pieceNum)
+            board.append(pieceCode)
+
+    whoseTurn = Pieces.White if whoseTurn == "w" else Pieces.Black
+    # print(board)
+    # Parsing the castling situations
+    castling = {"wk": True if "K" in castles else False,
+                "wq": True if "Q" in castles else False,
+                "bk": True if "k" in castles else False,
+                "bq": True if "q" in castles else False
+    }
+    # Finding the number of the square to make En Passant
+    enp = None if enpassant == "-" else coordToNum(enpassant)
+    
+    return Chess(board, whoseTurn, castling, enp, halfmove, fullmove, [], castling)
 
 class Pieces:
     Pawn   = 1
@@ -216,13 +216,14 @@ def numToCoord(num):
     return col+str(row)
 
 def moveToString(move: Move):
+    print(move)
     text = ""
     if move.specialMoveType in [None, "enp", "castle"]:
         text = numToCoord(move.start) + numToCoord(move.end)
     
     else:
         if move.specialMoveType == "pro":
-            text = text + Pieces.ptt[move.specialMoveDesc]
+            text = text + numToCoord(move.start) + numToCoord(move.end)  + Pieces.ptt[move.specialMoveDesc]
     
     return text
 
@@ -437,11 +438,11 @@ def getLegalMoves(game:Chess):
                     if drc not in disallowedDirections:
                         try:
                             if altgame.board[i + drc][1] == Pieces.King:
-                                print(numToCoord(i), numToCoord(i+drc))
+                                # print(numToCoord(i), numToCoord(i+drc))
                                 doKingsSeeEachOther = True
                                 break
                         except: pass
-                if doKingsSeeEachOther: print(doKingsSeeEachOther)
+                # if doKingsSeeEachOther: print(doKingsSeeEachOther)
                 if doKingsSeeEachOther: break
 
                 isKingInCheck = isTheSquareThreatened(altgame, i, 1-turn)
@@ -676,7 +677,10 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
                 for move in moves:
                     altGame = game.backupTheGame()
                     altGame.move(move)
-                    result = alphaBeta(altGame, alpha, beta, depth-1, True)
+                    anyKingIsInCheck = isKingInCheck(altGame, 1) or isKingInCheck(altGame, 0)
+                    anyKingIsInCheck = int(not anyKingIsInCheck)
+                    anyKingIsInCheck = 1
+                    result = alphaBeta(altGame, alpha, beta, depth-anyKingIsInCheck, True)
 
                     minEval = min(minEval, result[0])
                     beta = min(beta, result[0])

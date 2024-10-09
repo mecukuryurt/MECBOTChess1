@@ -8,9 +8,11 @@ print("Done")
 
 def strategy(game:gm.Chess):
     print("STRATEGY RUNNING")
-    print(game.turn)
+    print("ST gameturn", game.turn)
     result = gm.getBestEvaluation(game, 2)
-    print(result[0], gm.moveToString(result[1]))
+    print("ST res", result[0], gm.moveToString(result[1]), gm.writeFEN(game))
+    if abs(gm.evaluate(game)) == gm.Chess.infinity or gm.isStalemate(game):
+        return "GAMEEND"
     return result[1]
 
 def startBot():
@@ -22,8 +24,9 @@ def startBot():
     areWePlaying = False
 
     while True:
+        movetext = ""
         for event in client.bots.stream_incoming_events():
-            print("EVENT", event)
+            print("EVENT", event, areWePlaying)
             if event["type"] == "challenge" and not areWePlaying:
                 if event["challenge"]["variant"]["key"] in "standardfromPosition" and event["challenge"]["rated"] == False: # event["challenge"]["challenger"]["name"] == "Ertugrul2010"
                     gameid = event["challenge"]["id"]
@@ -60,7 +63,7 @@ def startBot():
                 
 
             if event["type"] == "gameState":
-                if game.turn == colour: continue # len(event["moves"].split(" ")) % 2
+                if movetext == event["moves"].split(" ")[-1]: continue # len(event["moves"].split(" ")) % 2  # game.turn == colour
                 else:
                     if event["status"] == "started":
                         print("THEY PLAYED: ", event["moves"].split(" ")[-1], game.turn)
@@ -68,16 +71,22 @@ def startBot():
                             game.move(gm.stringToMove(game, event["moves"].split(" ")[-1]))
                             print("CALCULATE", gm.writeFEN(game))
                             move = strategy(game)
+                            if move == "GAMEEEND": 
+                                print("GAMEENDED ACCORDING TO ME")
+                                areWePlaying = False
+                                break
                             movetext = gm.moveToString(move)
                             client.bots.make_move(gameid, movetext)
                             game.move(move)
                             print("I MOVED: ", movetext, game.turn)
                     
                     if event["status"] in "materesign":
+                        print("GAMEEND")
                         client.bots.post_message(gameid, "Good Game! "+("Prepare yourself for another game!" if event["winner"] == colourtext else "You win!"))
 
             if event["type"] == "gameFinish":
                 areWePlaying = False
+                print("GAMEFINISH")
 
 # game = gm.readFEN("r4rk1/p7/1q2b2p/3p1pp1/2P2p2/8/PPQN1nPP/R1B2RK1 b - - 0 1")
 # game = gm.readFEN("q2r3k/6pp/8/3Q2N1/8/8/5PPP/6K1 w - - 0 1")
