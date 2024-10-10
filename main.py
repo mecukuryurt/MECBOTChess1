@@ -11,7 +11,9 @@ def strategy(game:gm.Chess):
     print("ST gameturn", game.turn)
     result = gm.getBestEvaluation(game, 2)
     print("ST res", result[0], gm.moveToString(result[1]), gm.writeFEN(game))
-    if abs(gm.evaluate(game)) == gm.Chess.infinity or gm.isStalemate(game):
+    curreval, isstmt = gm.evaluate(game), gm.isStalemate(game)
+    print("ST curRES -> cureval, isstalemate", curreval, isstmt)
+    if abs(curreval) == gm.Chess.infinity or isstmt:
         return "GAMEEND"
     return result[1]
 
@@ -25,15 +27,18 @@ def startBot():
 
     while True:
         movetext = ""
+        print("Bot waiting...")
         for event in client.bots.stream_incoming_events():
             print("EVENT", event, areWePlaying)
             if event["type"] == "challenge" and not areWePlaying:
                 if event["challenge"]["variant"]["key"] in "standardfromPosition" and event["challenge"]["rated"] == False: # event["challenge"]["challenger"]["name"] == "Ertugrul2010"
+                    print("ACCEPTED GAME")
                     gameid = event["challenge"]["id"]
                     client.bots.accept_challenge(gameid)
                     areWePlaying = True
                     break
                 else:
+                    print("DECLINED GAME")
                     client.bots.decline_challenge(event["challenge"]["id"])
             
             if event["type"] == "gameStart": 
@@ -47,7 +52,7 @@ def startBot():
             print("GAMESTATE", event)
             try: game
             except:
-                game = gm.readFEN(event["initialFen"])
+                game = gm.readFEN(event["initialFen"] if event["initialFen"] != "startpos" else "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
                 for move in event["state"]["moves"].split():
                     game.move(move)
             try: colour = 1 if event["white"]["id"] == "mecbotchess1" else 0
@@ -66,7 +71,7 @@ def startBot():
                 if movetext == event["moves"].split(" ")[-1]: continue # len(event["moves"].split(" ")) % 2  # game.turn == colour
                 else:
                     if event["status"] == "started":
-                        print("THEY PLAYED: ", event["moves"].split(" ")[-1], game.turn)
+                        print("THEY PLAYED: ", event["moves"].split(" ")[-1], " gameturn", game.turn)
                         if game.turn != colour:
                             game.move(gm.stringToMove(game, event["moves"].split(" ")[-1]))
                             print("CALCULATE", gm.writeFEN(game))
@@ -80,7 +85,7 @@ def startBot():
                             game.move(move)
                             print("I MOVED: ", movetext, game.turn)
                     
-                    if event["status"] in "materesign":
+                    if event["status"] == "resign" or event["status"] == "mate":
                         print("GAMEEND")
                         client.bots.post_message(gameid, "Good Game! "+("Prepare yourself for another game!" if event["winner"] == colourtext else "You win!"))
 
@@ -93,22 +98,31 @@ def startBot():
 # game = gm.readFEN("q2r3k/6pp/7N/3Q4/8/8/5PPP/6K1 w - - 4 3")
 # game = gm.readFEN("8/8/7p/6N1/6k1/8/5PPP/6K1 b - - 1 8")
 
+executeBot = 0
+
+if executeBot == 1:
+    print("Starting bot...")
+    startBot()
+    exit()
+
+# game = gm.readFEN("rn1q1knr/pppb1ppp/8/3BN3/1b2P3/7P/PPPP1PP1/RNBQ1RK1 b - - 0 7")
+piyonavurmagerizekali = gm.readFEN("rn1q1knr/ppp2ppp/4b3/4N3/1b2B3/7P/PPPP1PP1/RNBQ1RK1 b - - 0 8")
+vurdu = gm.readFEN("rn1q1knr/ppp2ppp/8/4N3/1b2B3/7P/RPPP1PP1/1NBQ1RK1 b - - 0 9")
+game = piyonavurmagerizekali
+
 """
+postoeval = gm.readFEN("rn1q1knr/ppp2ppp/8/3BN3/1b2P3/7P/PPPP1P2/RNBQ1RK1 b - - 0 8")
+print(gm.evaluate(postoeval))
+"""
+
 moves = gm.getLegalMoves(game)
 print(bool(game.turn))
 print(gm.evaluate(game))
-
-for move in moves:
-    if move.end == gm.coordToNum("g5"):
-        print(gm.moveToString(move))
-
+print("vurdu", gm.evaluate(vurdu))
 
 print(game.turn)
 t1 = time.time()
-result = gm.getBestEvaluation(game, 1)
+result = gm.getBestEvaluation(game, 2)
 t2 = time.time()
 print(game.turn, result)
 print(result[0], gm.moveToString(result[1]), t2- t1)
-"""
-
-startBot()

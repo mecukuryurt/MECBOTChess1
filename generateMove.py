@@ -27,7 +27,7 @@ class Chess:
 
     def move(self, move: Move, ignoreerroronnotyourturn = False):
         piece = self.board[move.start]
-        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print("itsnoturturn", piece, numToCoord(move.start), self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
+        if (piece[0] != self.turn) and not ignoreerroronnotyourturn: print("itsnoturturn piece,movestart,gameturn", piece, numToCoord(move.start), self.turn); raise Exception("It is not "+ {0:"black", 1:"white"}[self.turn] + "'s turn!")
 
         self.moves.append(move)        
 
@@ -727,4 +727,5 @@ def getBestEvaluation(game:Chess = readFEN(), depth = 1):
             return bestEval, bestMoves[0]  # bestEval, bestMove
         
     # return alphaBeta(game, -Chess.infinity, Chess.infinity, depth)
+    # return minimax(game, depth)
     return alphaBeta(game, -Chess.infinity, Chess.infinity, depth, bool(game.turn))
